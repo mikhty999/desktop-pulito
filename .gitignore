@@ -1,0 +1,10 @@
+# build output
+bin/
+obj/
+publish/
+*.exe
+*.pdb
+_tmp.exe
+TestResults/
+.vs/
+*.user

@@ -1,0 +1,19 @@
+<Project>
+  <!-- Impostazioni comuni a tutti i progetti della soluzione -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Company>Desktop Pulito contributors</Company>
+    <Product>Desktop Pulito</Product>
+    <Copyright>MIT License</Copyright>
+    <Version>2.0.0</Version>
+    <!-- prestazioni: niente telemetria di runtime, GC adatto a un'app residente leggera -->
+    <TieredPGO>true</TieredPGO>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

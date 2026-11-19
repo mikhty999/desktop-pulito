@@ -1,0 +1,40 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test DesktopPulito.slnx -c Release
+
+      - name: Publish (single file, 1 MB, needs .NET 10 Desktop Runtime)
+        run: >
+          dotnet publish src/DesktopPulito.App/DesktopPulito.App.csproj -c Release -r win-x64
+          --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DesktopPulito
+          path: publish/DesktopPulito.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/DesktopPulito.exe
+          generate_release_notes: true
