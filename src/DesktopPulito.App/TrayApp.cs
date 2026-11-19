@@ -95,9 +95,11 @@ static class App
 
         // effetti sulla scheda video: shader compilati in background, così la prima transizione parte subito
         if (Cfg.FadeStyle >= 7) ThreadPool.QueueUserWorkItem(delegate { try { DesktopPulito.Infrastructure.Gpu.GpuTransition.Warmup(); } catch { } });
+        Widgets.Sync();
         if (!silent) ShowSettings();
         ScheduleTrim();
         Application.Run();
+        Widgets.CloseAll();
 
         dbl.Stop();
         Unhook();
@@ -208,6 +210,7 @@ static class App
         catch (DomainException) { }
         finally { busy = false; }
         SetTrayState(Desk.IconsVisible(), true);
+        Widgets.Sync();
         SyncZen();
         UpdateWatch();
         ScheduleTrim();
@@ -255,6 +258,7 @@ static class App
         SyncZen();
         UpdateWatch();
         if (settings != null) settings.Sync();
+        Widgets.Restyle();
     }
 
     public static void ResetConfig()
