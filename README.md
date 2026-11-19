@@ -115,7 +115,7 @@ How it stays this light:
 Requirements: Windows 10/11 and the free [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```powershell
-git clone https://github.com/<your-user>/desktop-pulito.git
+git clone https://github.com/mikhty999/desktop-pulito.git
 cd desktop-pulito
 dotnet test DesktopPulito.slnx
 dotnet run --project src/DesktopPulito.App
