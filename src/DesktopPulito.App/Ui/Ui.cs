@@ -106,6 +106,9 @@ class GlassForm : Form
 
     public int S(float v) { return (int)Math.Round(v * Sc); }
 
+    // Ogni quanto rileggere lo sfondo dietro (ms): i widget sul desktop lo fanno di rado.
+    protected int BackdropEvery { set { refresh.Interval = value; } }
+
     public T2 Add<T2>(T2 e) where T2 : El { e.F = this; Els.Add(e); return e; }
 
     // Niente cornice di Windows: la finestra è tutta nostra, ma DWM ci dà ombra e angoli arrotondati.

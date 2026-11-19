@@ -68,7 +68,7 @@ class SettingsForm : GlassForm
 
     public SettingsForm() : base(true)
     {
-        ClientSize = new Size(S(800), S(624));
+        ClientSize = new Size(S(800), S(690));
         DragH = S(52);
         Rectangle wa = Screen.PrimaryScreen.WorkingArea;
         Location = new Point(wa.X + (wa.Width - Width) / 2, wa.Y + (wa.Height - Height) / 2);
@@ -363,6 +363,26 @@ class SettingsForm : GlassForm
                 RefreshSoon();
             }
         }, re);
+
+        Row rg = CtlRow(Lang.L("Widget", "Widgets"), Lang.L("In vetro sul desktop · trascinali dove vuoi", "Glass on your desktop · drag them anywhere"), null, 380);
+        Rectangle last = PillAt(rg.B, 110);
+        for (int i = 0; i < Widgets.All.Length; i++)
+        {
+            DesktopPulito.Domain.WidgetKind k = Widgets.All[i];
+            Func<bool> on = delegate { return Services.EditScenes.Library.Find(id).Widgets.Any(w => w.Kind == k); };
+            With(new Pill
+            {
+                Style = on() ? 0 : 1, B = new Rectangle(last.X - (Widgets.All.Length - 1 - i) * S(118), last.Y, S(110), last.Height),
+                Text = delegate { return (on() ? "✓ " : "") + Widgets.Name(k); },
+                OnClick = delegate
+                {
+                    bool was = on();
+                    Services.EditScenes.Update(id, x => { if (was) x.RemoveWidget(k); else x.PlaceWidget(Widgets.Default(k)); });
+                    if (id == Services.EditScenes.Library.ActiveId) Widgets.Sync();
+                    RefreshSoon();
+                }
+            }, rg);
+        }
     }
 
     void PickWallpaper(DesktopPulito.Domain.SceneId id)
@@ -385,6 +405,31 @@ class SettingsForm : GlassForm
             delegate { return App.Cfg.DoubleClick; }, delegate(bool v) { Set(delegate { App.Cfg.DoubleClick = v; }); }, null);
         ToggleRow(Lang.L("Modalità Zen", "Zen mode"), Lang.L("Nasconde anche la barra delle applicazioni", "Also hides the taskbar"),
             delegate { return App.Cfg.Zen; }, delegate(bool v) { Set(delegate { App.Cfg.Zen = v; }); }, null);
+
+        Section(Lang.L("Dati dei widget", "Widget data") + "   ·   " + Lang.L("gratis, senza account", "free, no account"));
+        Row rc = CtlRow(Lang.L("Città del meteo", "Weather city"), Lang.L("Dati di Open-Meteo", "Data from Open-Meteo"), null, 300);
+        TextField city = With(new TextField
+        {
+            B = rc.B, BoxW = 260, RightGap = 0, Placeholder = Lang.L("es. Bologna", "e.g. London"),
+            Get = delegate { return App.Cfg.WeatherCity ?? ""; },
+            Commit = delegate(string v) { App.Cfg.WeatherCity = v; App.ConfigChanged(); Widgets.Reload(); return null; }
+        }, rc);
+        Row rk = CtlRow(Lang.L("Calendario", "Calendar"), Lang.L("Link iCal (.ics) di Google Calendar o Outlook", "iCal (.ics) link from Google Calendar or Outlook"), null, 300);
+        TextField cal = With(new TextField
+        {
+            B = rk.B, BoxW = 260, RightGap = 0, Placeholder = "https://… .ics",
+            Get = delegate { return App.Cfg.CalendarUrl ?? ""; },
+            Commit = delegate(string v)
+            {
+                string t = (v ?? "").Trim();
+                App.Cfg.CalendarUrl = t;
+                App.ConfigChanged();
+                Widgets.Reload();
+                bool ok = t.Length == 0 || t.StartsWith("webcal", StringComparison.OrdinalIgnoreCase) || App.Cfg.CalendarUrl == t;
+                return ok ? null : Lang.L("Link non valido: deve iniziare con https://", "Invalid link: it must start with https://");
+            }
+        }, rk);
+        rk.Warn = delegate { return cal.Error; };
     }
 
     void BuildKeys()
