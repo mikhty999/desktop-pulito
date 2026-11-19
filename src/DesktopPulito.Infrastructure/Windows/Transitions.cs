@@ -502,7 +502,9 @@ static class Fader
             try
             {
                 Mark("gpu: avvio");
-                GpuTransition.Play(r, after, s0.Bits, s1.Bits, ms, style - 7, origin, delegate { cover.Dispose(); Mark("gpu: primo fotogramma"); });
+                // la copertura resta sotto fino alla fine: riempie i pixel lasciati scoperti per gli sfondi animati
+                GpuTransition.Play(r, after, s0.Bits, s1.Bits, ms, style - 7, origin, delegate { Mark("gpu: primo fotogramma"); });
+                cover.Dispose();
                 a = null;
                 Mark("gpu: fine");
                 return true;

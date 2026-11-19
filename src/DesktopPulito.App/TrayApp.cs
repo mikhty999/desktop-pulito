@@ -93,6 +93,8 @@ static class App
         EventWaitHandle evSearch = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\DesktopPulito_Search");
         ThreadPool.RegisterWaitForSingleObject(evSearch, delegate { Invoker.BeginInvoke((MethodInvoker)ShowSearch); }, null, -1, false);
 
+        // effetti sulla scheda video: shader compilati in background, così la prima transizione parte subito
+        if (Cfg.FadeStyle >= 7) ThreadPool.QueueUserWorkItem(delegate { try { DesktopPulito.Infrastructure.Gpu.GpuTransition.Warmup(); } catch { } });
         if (!silent) ShowSettings();
         ScheduleTrim();
         Application.Run();

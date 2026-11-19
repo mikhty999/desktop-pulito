@@ -1,4 +1,4 @@
-namespace DesktopPulito.Infrastructure.Gpu;
+﻿namespace DesktopPulito.Infrastructure.Gpu;
 
 /// <summary>
 /// Shader HLSL degli effetti di transizione. Un solo pixel shader con 5 modalità:
@@ -39,24 +39,44 @@ float fbm(float2 p)
     return v;
 }
 
-// Bruciatura: un fronte frastagliato parte dal puntatore; davanti bruciacchia, sul bordo fiamma, dietro braci.
+// Film burn: la pellicola si scioglie nel proiettore. Buchi che si allargano dal puntatore e da punti casuali,
+// bordo incandescente, lampi di luce calda (light leak) che sovraespongono, sfarfallio a 24 fps e grana.
 float4 Burn(float2 uv)
 {
     float2 q = float2(uv.x * Aspect, uv.y);
-    float d = distance(q, float2(Origin.x * Aspect, Origin.y));
-    float field = d / (Aspect * 0.9 + 0.6) + fbm(q * 3.5 + Seed) * 0.35;
-    float e = field - (T * 1.45 - 0.1);
+    float2 o = float2(Origin.x * Aspect, Origin.y);
+    float pulse = sin(T * 3.14159);
+    float flick = 0.8 + 0.4 * hash(float2(floor(T * 24), Seed));
+
+    // dove la pellicola si scioglie: un buco dal puntatore + bolle sparse
+    float d = distance(q, o) / (Aspect * 0.9 + 0.6);
+    float n = fbm(q * 2.6 + Seed);
+    float field = min(d * 0.9 + n * 0.45, n * 1.15 + 0.25);
+    float e = field - (T * 1.35 - 0.1);
+    float hole = smoothstep(0.02, -0.02, e);
+
     float4 a = TA.Sample(S, uv), b = TB.Sample(S, uv);
-    if (e > 0.09) return a;
-    if (e > 0.025) { float k = 1 - (e - 0.025) / 0.065; return float4(lerp(a.rgb, a.rgb * float3(0.45, 0.28, 0.16), k * k), 1); }
-    if (e > 0.0)
-    {
-        float k = 1 - e / 0.025;
-        float3 fire = lerp(float3(1.0, 0.5, 0.1), float3(1.0, 0.93, 0.62), k);
-        return float4(fire * (1.05 + 0.45 * vnoise(q * 60 + T * 9)), 1);
-    }
-    if (e > -0.04) { float k = (e + 0.04) / 0.04; return float4(lerp(b.rgb, float3(1.0, 0.33, 0.05), k * k * 0.85), 1); }
-    return b;
+    float3 col = lerp(a.rgb, b.rgb, hole);
+
+    // light leak: alone caldo che scorre sull'immagine (fusione "schermo": schiarisce senza coprire)
+    float2 lp = o + float2(sin(T * 2.1 + Seed), cos(T * 1.7 + Seed)) * 0.45;
+    float leak = saturate(1.0 - distance(q, lp) / (Aspect * 0.6));
+    float3 leakCol = lerp(float3(0.95, 0.18, 0.05), float3(1.0, 0.72, 0.28), leak);
+    float amt = pulse * flick;
+    col = 1 - (1 - col) * (1 - leakCol * leak * amt * 0.7);
+
+    // bordo che brucia: filo bianco-dorato con alone ambrato davanti al fronte
+    float on = saturate(T * 6) * saturate((1 - T) * 6);
+    col += float3(1.0, 0.86, 0.58) * exp(-abs(e) * 55) * 1.5 * on;
+    col += float3(1.0, 0.42, 0.08) * exp(-max(e, 0) * 14) * (1 - hole) * 0.5 * on;
+
+    // nei buchi appena aperti l'immagine nuova arriva sovraesposta, poi si assesta
+    float fresh = hole * saturate(1 + e * 6);
+    col = lerp(col, float3(1.0, 0.96, 0.88), fresh * 0.65 * on);
+
+    // grana della pellicola
+    col += (hash(uv * Px + floor(T * 24) * 7.3) - 0.5) * 0.07 * amt;
+    return float4(saturate(col), 1);
 }
 
 // Pixel: lo schermo si scompone in quadratini che si scambiano in ordine casuale, poi torna nitido.
