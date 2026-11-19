@@ -782,6 +782,15 @@ static class Art
                     g.DrawArc(p, cx - u, cy - u, u * 2, u * 2, 215, 110);
                     g.DrawArc(p, cx - u, cy - u, u * 2, u * 2, 35, 110);
                     break;
+                case 7:   // scene: due lastre sovrapposte
+                    {
+                        RectangleF back = new RectangleF(r.X + u * 0.45f, r.Y, r.Width - u * 0.45f, r.Height - u * 0.55f);
+                        RectangleF front = new RectangleF(r.X, r.Y + u * 0.55f, r.Width - u * 0.45f, r.Height - u * 0.55f);
+                        using (GraphicsPath gp = Round(back, u * 0.25f)) g.DrawPath(p, gp);
+                        using (SolidBrush b = new SolidBrush(Color.FromArgb(90, c))) FillRound(g, b, front, u * 0.25f);
+                        using (GraphicsPath gp = Round(front, u * 0.25f)) g.DrawPath(p, gp);
+                    }
+                    break;
                 case 5:   // cerca: lente
                     g.DrawEllipse(p, r.X, r.Y, u * 1.35f, u * 1.35f);
                     g.DrawLine(p, r.X + u * 1.2f, r.Y + u * 1.2f, r.Right, r.Bottom);

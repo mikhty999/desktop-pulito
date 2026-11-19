@@ -40,6 +40,27 @@ public sealed class SceneLibrary
         if (ActiveId == id) ActiveId = scenes[Math.Min(i, scenes.Count - 1)].Id;
     }
 
+    public Scene Find(SceneId id) => scenes.FirstOrDefault(s => s.Id == id) ?? throw new DomainException("Scena inesistente.");
+
+    /// <summary>Rinomina mantenendo i nomi unici (senza distinguere maiuscole e minuscole).</summary>
+    public void Rename(SceneId id, string name)
+    {
+        Scene s = Find(id);
+        string n = (name ?? "").Trim();
+        if (scenes.Any(x => x.Id != id && string.Equals(x.Name, n, StringComparison.CurrentCultureIgnoreCase)))
+            throw new DomainException($"Esiste già una scena chiamata \"{n}\".");
+        s.Rename(n);
+    }
+
+    /// <summary>Primo nome libero: "Scena", "Scena 2", "Scena 3"...</summary>
+    public string UniqueName(string baseName)
+    {
+        string b = string.IsNullOrWhiteSpace(baseName) ? "Scena" : baseName.Trim();
+        bool Taken(string n) => scenes.Any(x => string.Equals(x.Name, n, StringComparison.CurrentCultureIgnoreCase));
+        if (!Taken(b)) return b;
+        for (int i = 2; ; i++) if (!Taken($"{b} {i}")) return $"{b} {i}";
+    }
+
     public Scene Activate(SceneId id)
     {
         if (!scenes.Any(s => s.Id == id)) throw new DomainException("Scena inesistente.");

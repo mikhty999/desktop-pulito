@@ -2,6 +2,7 @@
 // Finestra impostazioni: vetro, barra laterale, 5 pagine, gradiente animato in "Home".
 using DesktopPulito.Infrastructure.Windows;
 using System;
+using System.Linq;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -37,7 +38,7 @@ class Hero : El
 
 class SettingsForm : GlassForm
 {
-    static readonly int[] PageIcons = { 0, 1, 6, 2, 3, 4 };
+    static readonly int[] PageIcons = { 0, 1, 6, 7, 2, 3, 4 };
     static readonly int[] DelaySteps = { 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300 };
 
     static string PageName(int i)
@@ -47,8 +48,9 @@ class SettingsForm : GlassForm
             case 0: return "Home";
             case 1: return Lang.L("Aspetto", "Appearance");
             case 2: return Lang.L("Transizioni", "Transitions");
-            case 3: return Lang.L("Comportamento", "Behavior");
-            case 4: return Lang.L("Scorciatoie", "Shortcuts");
+            case 3: return Lang.L("Scene", "Scenes");
+            case 4: return Lang.L("Comportamento", "Behavior");
+            case 5: return Lang.L("Scorciatoie", "Shortcuts");
             default: return Lang.L("Sistema", "System");
         }
     }
@@ -76,12 +78,12 @@ class SettingsForm : GlassForm
         Add(new CapBtn { Kind = 0, B = new Rectangle(ClientSize.Width - S(46), 0, S(46), S(36)), OnClick = Close });
         Add(new CapBtn { Kind = 1, B = new Rectangle(ClientSize.Width - S(92), 0, S(46), S(36)), OnClick = delegate { WindowState = FormWindowState.Minimized; } });
 
-        Func<string>[] names = new Func<string>[6];
-        for (int i = 0; i < 6; i++) { int k = i; names[i] = delegate { return PageName(k); }; }
+        Func<string>[] names = new Func<string>[7];
+        for (int i = 0; i < 7; i++) { int k = i; names[i] = delegate { return PageName(k); }; }
         // la barra laterale è una lastra di vetro a sé
         Add(new Group { B = new Rectangle(S(12), S(58), S(212), ClientSize.Height - S(70)), Radius = 22, Clear = true });
         nav = Add(new Nav(names, PageIcons));
-        nav.B = new Rectangle(S(20), S(68), S(196), S(6 * 44));
+        nav.B = new Rectangle(S(20), S(68), S(196), S(7 * 44));
         nav.OnSelect = ShowPage;
 
         cx = S(244); cw = ClientSize.Width - cx - S(28);
@@ -112,9 +114,10 @@ class SettingsForm : GlassForm
             case 0: BuildHome(); break;
             case 1: BuildLook(); break;
             case 2: BuildTransitions(); break;
-            case 3: BuildBehavior(); break;
-            case 4: BuildKeys(); break;
-            case 5: BuildSystem(); break;
+            case 3: BuildScenes(); break;
+            case 4: BuildBehavior(); break;
+            case 5: BuildKeys(); break;
+            case 6: BuildSystem(); break;
         }
         EndGroup();
         pageT = T.Motion ? 0 : 99;
@@ -278,6 +281,99 @@ class SettingsForm : GlassForm
         Row rp = CtlRow(Lang.L("Prova l'effetto", "Try the effect"), Lang.L("Le icone spariscono e tornano subito", "Icons vanish and come straight back"), delegate { return App.Cfg.Fade; }, 160);
         With(new Pill { Style = 0, B = PillAt(rp.B, 130), Text = delegate { return Lang.L("Prova", "Try it"); }, OnClick = App.PreviewTransition, EnabledIf = delegate { return App.Cfg.Fade; } }, rp);
     }
+
+    // ── Scene: elenco + editor della scena selezionata ──
+    DesktopPulito.Domain.SceneId selScene;
+
+    static string EffectName(DesktopPulito.Domain.TransitionSpec t)
+    {
+        if (t == null) return Lang.L("Predefinito", "Default");
+        string[] e = Effects[(int)t.Style];
+        return Lang.L(e[0], e[1]);
+    }
+
+    void BuildScenes()
+    {
+        DesktopPulito.Domain.SceneLibrary lib = Services.EditScenes.Library;
+        if (!lib.Scenes.Any(s => s.Id == selScene)) selScene = lib.ActiveId;
+        Section(Lang.L("Le tue scene", "Your scenes") + "   ·   Ctrl+Alt+S " + Lang.L("per passare alla successiva", "switches to the next one"));
+        P(new Pill { Style = 1, B = new Rectangle(cx + cw - S(120), y - S(34), S(120), S(30)), Text = delegate { return Lang.L("+ Nuova", "+ New"); },
+            OnClick = delegate { selScene = Services.EditScenes.Create(Lang.L("Scena", "Scene")).Id; ShowPage(3); } });
+        foreach (DesktopPulito.Domain.Scene sc in lib.Scenes)
+        {
+            DesktopPulito.Domain.Scene s = sc;
+            bool active = s.Id == lib.ActiveId;
+            string desc = (s.ShowIcons ? Lang.L("Icone visibili", "Icons visible") : Lang.L("Desktop pulito", "Clean desktop")) + "  ·  " +
+                          (string.IsNullOrEmpty(s.WallpaperPath) ? Lang.L("sfondo attuale", "current wallpaper") : System.IO.Path.GetFileName(s.WallpaperPath)) + "  ·  " + EffectName(s.EnterWith);
+            int ry = y;
+            Row r = CtlRow(s.Name, desc, null, 170);
+            r.Accent = s.Id == selScene;
+            With(new Pill { Style = 1, B = new Rectangle(cx, ry, cw - S(150), S(62)), Text = delegate { return ""; }, OnClick = delegate { selScene = s.Id; ShowPage(3); }, Invisible = true }, r);
+            With(new Pill
+            {
+                Style = active ? 0 : 1, B = PillAt(r.B, 120),
+                Text = delegate { return active ? Lang.L("In uso", "Active") : Lang.L("Attiva", "Activate"); },
+                OnClick = delegate { if (!active) { App.ActivateScene(s.Id); ShowPage(3); } }
+            }, r);
+        }
+        DesktopPulito.Domain.Scene sel = lib.Find(selScene);
+        DesktopPulito.Domain.SceneId id = sel.Id;
+        Section(Lang.L("Modifica", "Edit") + ": " + sel.Name);
+
+        Row rn = CtlRow(Lang.L("Nome", "Name"), null, null, 390);
+        TextField tf = With(new TextField
+        {
+            B = rn.B, BoxW = 230, RightGap = 140, Placeholder = Lang.L("Nome della scena", "Scene name"),
+            Get = delegate { return Services.EditScenes.Library.Find(id).Name; },
+            Commit = delegate(string v)
+            {
+                try { Services.EditScenes.Rename(id, v); Invoker(delegate { ShowPage(3); }); return null; }
+                catch (DesktopPulito.Domain.DomainException ex) { return ex.Message; }
+            }
+        }, rn);
+        rn.Warn = delegate { return tf.Error; };
+        With(new Pill
+        {
+            Style = 3, B = PillAt(rn.B, 110), Text = delegate { return Lang.L("Elimina", "Delete"); },
+            EnabledIf = delegate { return Services.EditScenes.Library.Scenes.Count > 1; },
+            OnClick = delegate { try { Services.EditScenes.Delete(id); } catch (DesktopPulito.Domain.DomainException) { } ShowPage(3); }
+        }, rn);
+
+        ToggleRow(Lang.L("Icone visibili", "Icons visible"), Lang.L("Le icone del desktop in questa scena", "Desktop icons in this scene"),
+            delegate { return Services.EditScenes.Library.Find(id).ShowIcons; },
+            delegate(bool v) { Services.EditScenes.Update(id, x => x.ShowIcons = v); RefreshSoon(); }, null);
+
+        Row rw = CtlRow(Lang.L("Sfondo", "Wallpaper"), string.IsNullOrEmpty(sel.WallpaperPath) ? Lang.L("Usa lo sfondo attuale", "Uses the current wallpaper") : sel.WallpaperPath, null, 270);
+        With(new Pill { Style = 1, B = PillAt(rw.B, 120), Text = delegate { return Lang.L("Scegli…", "Choose…"); }, OnClick = delegate { PickWallpaper(id); } }, rw);
+        if (!string.IsNullOrEmpty(sel.WallpaperPath))
+            With(new Pill { Style = 1, B = new Rectangle(PillAt(rw.B, 120).X - S(110), PillAt(rw.B, 100).Y, S(100), S(34)), Text = delegate { return Lang.L("Togli", "Clear"); },
+                OnClick = delegate { Services.EditScenes.Update(id, x => x.WallpaperPath = null); ShowPage(3); } }, rw);
+
+        Row re = CtlRow(Lang.L("Effetto d'ingresso", "Entry effect"), Lang.L("Clic per cambiarlo · Predefinito = quello di Transizioni", "Click to change · Default = the one in Transitions"), null, 200);
+        With(new Pill
+        {
+            Style = 0, B = PillAt(re.B, 170), Text = delegate { return EffectName(Services.EditScenes.Library.Find(id).EnterWith) + "  ›"; },
+            OnClick = delegate
+            {
+                Services.EditScenes.Update(id, x =>
+                {
+                    int next = x.EnterWith == null ? 0 : (int)x.EnterWith.Style + 1;
+                    x.EnterWith = next >= Effects.Length ? null : new DesktopPulito.Domain.TransitionSpec((DesktopPulito.Domain.TransitionStyle)next, (DesktopPulito.Domain.TransitionSpeed)App.Cfg.FadeSpeed);
+                });
+                RefreshSoon();
+            }
+        }, re);
+    }
+
+    void PickWallpaper(DesktopPulito.Domain.SceneId id)
+    {
+        using (OpenFileDialog d = new OpenFileDialog { Title = Lang.L("Sfondo della scena", "Scene wallpaper"), Filter = Lang.L("Immagini", "Images") + "|*.jpg;*.jpeg;*.png;*.bmp;*.webp" })
+            if (d.ShowDialog(this) == DialogResult.OK) Services.EditScenes.Update(id, x => x.WallpaperPath = d.FileName);
+        ShowPage(3);
+    }
+
+    void Invoker(MethodInvoker a) { BeginInvoke(a); }
+    void RefreshSoon() { BeginInvoke((MethodInvoker)delegate { ShowPage(3); }); }
 
     void BuildBehavior()
     {
