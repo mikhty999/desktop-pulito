@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Il cuore: regole pure. Nessuna dipendenza da Windows, interfaccia o internet. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DesktopPulito.Domain</RootNamespace>
+  </PropertyGroup>
+</Project>
