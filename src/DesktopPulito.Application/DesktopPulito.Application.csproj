@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Casi d'uso e porte (interfacce). Dipende solo dal Domain. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DesktopPulito.Application</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DesktopPulito.Domain\DesktopPulito.Domain.csproj" />
+  </ItemGroup>
+</Project>
