@@ -17,6 +17,7 @@ static class Services
     public static readonly ToggleIcons ToggleIcons = new(Icons, Settings);
     public static readonly IDesktopTransitions Transitions = new WindowsDesktopTransitions();
     public static readonly SwitchScene SwitchScene = new(Scenes, Icons, Wallpaper, Transitions, Settings);
+    public static readonly EditScenes EditScenes = new(SwitchScene, Scenes);
     public static readonly SearchDesktop Search = new(new WindowsDesktopItems(), Settings);
     public static readonly GetWeather Weather = new(new OpenMeteoWeather(), Settings, Clock);
     public static readonly GetAgenda Agenda = new(new IcsCalendarFeed(), Settings, Clock);

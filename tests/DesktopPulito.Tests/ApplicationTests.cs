@@ -135,3 +135,42 @@ public class ApplicationTests
         Assert.Equal(2, feed.Loads);
     }
 }
+
+public class EditScenesTests
+{
+    static (EditScenes edit, MemoryScenes repo) Make()
+    {
+        MemoryScenes repo = new(SceneLibrary.CreateDefault(italian: true));
+        SwitchScene sw = new(repo, new FakeIcons(), new FakeWallpaper(), new FakeTransitions(), new MemorySettings());
+        return (new EditScenes(sw, repo), repo);
+    }
+
+    [Fact]
+    public void New_scenes_get_unique_names_and_are_saved()
+    {
+        var (edit, repo) = Make();
+        Assert.Equal("Scena", edit.Create("Scena").Name);
+        Assert.Equal("Scena 2", edit.Create("Scena").Name);
+        Assert.Equal(4, repo.Lib!.Scenes.Count);
+    }
+
+    [Fact]
+    public void Rename_rejects_duplicates_case_insensitively()
+    {
+        var (edit, _) = Make();
+        Scene s = edit.Create("Relax");
+        Assert.Throws<DomainException>(() => edit.Rename(s.Id, "LAVORO"));
+        edit.Rename(s.Id, "Cinema");
+        Assert.Equal("Cinema", edit.Library.Find(s.Id).Name);
+    }
+
+    [Fact]
+    public void Update_changes_wallpaper_icons_and_transition()
+    {
+        var (edit, repo) = Make();
+        Scene s = edit.Create("Notte");
+        edit.Update(s.Id, x => { x.WallpaperPath = @"C:\notte.jpg"; x.ShowIcons = true; x.EnterWith = new(TransitionStyle.Burn, TransitionSpeed.Slow); });
+        Scene saved = repo.Lib!.Find(s.Id);
+        Assert.Equal((@"C:\notte.jpg", true, TransitionStyle.Burn), (saved.WallpaperPath, saved.ShowIcons, saved.EnterWith!.Style));
+    }
+}

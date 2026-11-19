@@ -118,3 +118,23 @@ public sealed class SearchDesktop(IDesktopItemSource source, ISettingsRepository
 
     public void Refresh() => items = null;
 }
+
+/// <summary>Crea, rinomina, modifica ed elimina scene; ogni modifica viene salvata subito.</summary>
+public sealed class EditScenes(SwitchScene switcher, ISceneRepository repo)
+{
+    public SceneLibrary Library => switcher.Library;
+
+    public Scene Create(string baseName)
+    {
+        Scene s = new(SceneId.New(), Library.UniqueName(baseName)) { ShowIcons = false };
+        Library.Add(s);
+        repo.Save(Library);
+        return s;
+    }
+
+    public void Rename(SceneId id, string name) { Library.Rename(id, name); repo.Save(Library); }
+
+    public void Delete(SceneId id) { Library.Remove(id); repo.Save(Library); }
+
+    public void Update(SceneId id, Action<Scene> change) { change(Library.Find(id)); repo.Save(Library); }
+}

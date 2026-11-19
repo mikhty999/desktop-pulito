@@ -197,11 +197,14 @@ static class App
     public static void Toggle() { SetVisible(!Desk.IconsVisible()); }
 
     // Scena successiva (scorciatoia Ctrl+Alt+S): sfondo, icone e widget della scena, con la sua transizione.
-    public static void NextScene()
+    public static void NextScene() { ActivateScene(null); }
+
+    // Attiva una scena precisa (dalla pagina Scene) o, con null, la successiva.
+    public static void ActivateScene(SceneId? id)
     {
         if (busy) return;
         busy = true;
-        try { Services.SwitchScene.Next(); }
+        try { if (id.HasValue) Services.SwitchScene.To(id.Value); else Services.SwitchScene.Next(); }
         catch (DomainException) { }
         finally { busy = false; }
         SetTrayState(Desk.IconsVisible(), true);

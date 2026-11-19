@@ -31,6 +31,7 @@ abstract class El
     public virtual void Move(Point p) { }
     public virtual void Click(Point p) { }
     public virtual bool Key(Keys k) { return false; }
+    public virtual bool Char(char c) { return false; }
     public virtual void Blur() { }
 
     public virtual bool Animate()
@@ -436,6 +437,12 @@ class GlassForm : Form
         Kick();
     }
 
+    protected override void OnKeyPress(KeyPressEventArgs e)
+    {
+        if (focus != null && focus.Char(e.KeyChar)) { e.Handled = true; Kick(); return; }
+        base.OnKeyPress(e);
+    }
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (focus != null && focus.Key(keyData)) { Kick(); return true; }
@@ -485,6 +492,7 @@ class Row : El
     public int RightPad = 70;
     public bool Last;
     public Func<string> Warn;    // se restituisce un testo, prende il posto della descrizione (in rosso)
+    public bool Accent;          // barretta colorata a sinistra (es. scena selezionata)
 
     public Row() { Reveal = true; }
     public override Rectangle Dirty { get { return B; } }
@@ -495,6 +503,11 @@ class Row : El
     {
         if (HoverK > 0.01f)
             Art.FillRound(g, Color.FromArgb((int)((T.Dark ? 16 : 70) * HoverK), 255, 255, 255), RectangleF.Inflate(B, -S(5), -S(4)), S(13));
+        if (Accent)
+        {
+            RectangleF bar = new RectangleF(B.X + S(7), B.Y + B.Height / 2f - S(12), S(3), S(24));
+            using (LinearGradientBrush lg = T.Grad(bar, 255, 90f)) Art.FillRound(g, lg, bar, S(1.5f));
+        }
         string w = Warn != null ? Warn() : null;
         bool en = Enabled;
         float tw = B.Width - S(20) - S(RightPad);
@@ -707,11 +720,14 @@ class Pill : El
     public int Style;
     public int IconKind = -1;
 
+    public bool Invisible;   // area cliccabile senza disegno (es. selezionare una riga)
+
     public override bool Interactive { get { return true; } }
     public override void Click(Point p) { if (OnClick != null) OnClick(); }
 
     public override void Paint(Graphics g)
     {
+        if (Invisible) return;
         RectangleF r = B;
         r.Inflate(-S(1.5f) * PressK, -S(1.5f) * PressK);
         float rad = r.Height / 2;
@@ -915,6 +931,91 @@ class Nav : El
         float st2 = Math.Abs(pos - Sel) * S(18);
         RectangleF bar = new RectangleF(B.X + S(6), y - S(8) - st2 / 2, S(3), S(16) + st2);
         using (LinearGradientBrush lg = T.Grad(bar, 255, 90f)) Art.FillRound(g, lg, bar, S(1.5f));
+    }
+}
+
+// Campo di testo in vetro: clic per scrivere, Invio conferma, Esc annulla (anche uscire dal campo conferma).
+class TextField : El
+{
+    public Func<string> Get;
+    public Func<string, string> Commit;   // restituisce un messaggio d'errore, oppure null se va bene
+    public string Placeholder = "";
+    public int BoxW = 240, RightGap = 20;
+    public string Error;
+    string buf;
+    bool edit;
+    float blink;
+
+    public override bool Interactive { get { return true; } }
+    RectangleF Box { get { return new RectangleF(B.Right - S(RightGap) - S(BoxW), B.Y + B.Height / 2f - S(17), S(BoxW), S(34)); } }
+    public override bool Hit(Point p) { return Box.Contains(p); }
+    public override Rectangle Dirty { get { return Rectangle.Round(RectangleF.Inflate(Box, S(4), S(4))); } }
+
+    public override void Click(Point p)
+    {
+        if (edit) return;
+        edit = true; buf = Get() ?? ""; Error = null;
+        F.SetFocus(this);
+        F.Kick();
+    }
+
+    void Finish(bool save)
+    {
+        if (!edit) return;
+        edit = false;
+        if (save && Commit != null) Error = Commit(buf);
+        F.Kick();
+    }
+
+    public override void Blur() { Finish(true); }
+
+    public override bool Key(Keys k)
+    {
+        if (!edit) return false;
+        switch (k & Keys.KeyCode)
+        {
+            case Keys.Back: if (buf.Length > 0) buf = buf.Substring(0, buf.Length - 1); return true;
+            case Keys.Enter: Finish(true); F.SetFocus(null); return true;
+            case Keys.Escape: Finish(false); F.SetFocus(null); return true;
+        }
+        return false;
+    }
+
+    public override bool Char(char c)
+    {
+        if (!edit) return false;
+        if (c >= ' ' && buf.Length < 40) buf += c;
+        blink = 0;
+        return true;
+    }
+
+    public override bool Animate()
+    {
+        bool a = base.Animate();
+        if (edit) { blink += 0.06f * GlassForm.Dt; a = true; }
+        return a;
+    }
+
+    public override void Paint(Graphics g)
+    {
+        RectangleF bx = Box;
+        float rad = bx.Height / 2;
+        Art.FillRound(g, Color.FromArgb(T.Dark ? 45 : 16, 0, 0, 0), bx, rad);
+        if (edit)
+            using (LinearGradientBrush lg = T.Grad(bx, 200, 0f))
+            using (Pen p = new Pen(lg, S(1.5f)))
+            using (GraphicsPath gp = Art.Round(bx, rad)) g.DrawPath(p, gp);
+        else Art.Rim(g, bx, rad, F.Sc, 0.6f);
+        string s = edit ? buf : (Get() ?? "");
+        RectangleF tr = new RectangleF(bx.X + S(14), bx.Y, bx.Width - S(28), bx.Height);
+        if (s.Length == 0 && !edit) Tx.Draw(g, Placeholder, Fx.Body, T.Text3, tr);
+        else Tx.DrawS(g, s, Fx.Body, T.Text1, tr);
+        if (edit && Math.Sin(blink * 3) > -0.2)
+        {
+            float cx = tr.X + (s.Length == 0 ? 0 : Tx.Width(g, s, Fx.Body)) + S(1);
+            using (LinearGradientBrush lg = T.Grad(new RectangleF(cx, bx.Y + S(8), S(2), bx.Height - S(16)), 255, 90f))
+                g.FillRectangle(lg, cx, bx.Y + S(8), S(2), bx.Height - S(16));
+        }
     }
 }
 
