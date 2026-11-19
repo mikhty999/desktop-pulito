@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DesktopPulito.App/DesktopPulito.App.csproj" />
+    <Project Path="src/DesktopPulito.Application/DesktopPulito.Application.csproj" />
+    <Project Path="src/DesktopPulito.Domain/DesktopPulito.Domain.csproj" />
+    <Project Path="src/DesktopPulito.Infrastructure/DesktopPulito.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DesktopPulito.Tests/DesktopPulito.Tests.csproj" />
+  </Folder>
+</Solution>
