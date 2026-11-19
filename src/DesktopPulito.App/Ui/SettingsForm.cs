@@ -250,7 +250,7 @@ class SettingsForm : GlassForm
         new string[] { "Gravità", "Gravity", "Le icone cadono e spariscono, poi tornano rimbalzando", "Icons fall away, then drop back with a bounce" },
         new string[] { "Onda", "Wave", "Le colonne cadono a cascata partendo dal mouse", "Columns cascade away starting from your mouse" },
         new string[] { "Vola via", "Float", "Le icone salgono leggere e svaniscono", "Icons drift up and vanish" },
-        new string[] { "Bruciatura", "Burn", "Il desktop brucia dal puntatore, tra fiamme e braci (scheda video)", "The desktop burns away from your pointer, flames and embers (GPU)" },
+        new string[] { "Film burn", "Film burn", "La pellicola si scioglie nel proiettore: luce calda, bruciature, grana (scheda video)", "The film melts in the projector: warm light leaks, burns, grain (GPU)" },
         new string[] { "Pixel", "Pixels", "Tutto si scompone in quadratini che si scambiano (scheda video)", "Everything breaks into pixels that swap places (GPU)" },
         new string[] { "Glitch", "Glitch", "Fasce che saltano e colori separati, stile segnale disturbato (scheda video)", "Jumping bands and split colors, like a broken signal (GPU)" },
         new string[] { "Increspatura", "Ripple", "Un'onda d'acqua parte dal puntatore (scheda video)", "A water wave spreads from your pointer (GPU)" },

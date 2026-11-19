@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -62,12 +62,23 @@ static class GpuTransition
         using ID3D11DeviceContext context = ctx!;
         using IDXGIFactory2 factory = DXGI.CreateDXGIFactory1<IDXGIFactory2>();
         using Surface win = new(r);
+        // Un pixel scoperto per monitor: per Windows e per gli sfondi animati (Wallpaper Engine) non è "schermo intero",
+        // quindi nessuno si mette in pausa o si spegne durante la transizione.
+        IntPtr rgn = CreateRectRgn(0, 0, r.Width, r.Height);
+        foreach (Screen s in Screen.AllScreens)
+        {
+            IntPtr dot = CreateRectRgn(s.Bounds.X - r.X, s.Bounds.Y - r.Y, s.Bounds.X - r.X + 1, s.Bounds.Y - r.Y + 1);
+            CombineRgn(rgn, rgn, dot, 4);
+            DeleteObject(dot);
+        }
+        SetWindowRgn(win.Handle, rgn, false);
 
         SwapChainDescription1 sd = new()
         {
             Width = (uint)r.Width, Height = (uint)r.Height, Format = Format.B8G8R8A8_UNorm,
-            BufferCount = 2, BufferUsage = Usage.RenderTargetOutput, SampleDescription = new SampleDescription(1, 0),
-            Scaling = Scaling.Stretch, SwapEffect = SwapEffect.FlipDiscard, AlphaMode = AlphaMode.Ignore,
+            // modello "blt": compatibile con finestre che coprono più monitor e con i registratori di schermo
+            BufferCount = 1, BufferUsage = Usage.RenderTargetOutput, SampleDescription = new SampleDescription(1, 0),
+            Scaling = Scaling.Stretch, SwapEffect = SwapEffect.Discard, AlphaMode = AlphaMode.Ignore,
         };
         using IDXGISwapChain1 swap = factory.CreateSwapChainForHwnd(device, win.Handle, sd);
         factory.MakeWindowAssociation(win.Handle, WindowAssociationFlags.IgnoreAll);
@@ -98,11 +109,19 @@ static class GpuTransition
             OX = origin.X, OY = origin.Y, PxW = r.Width, PxH = r.Height,
         };
 
+        bool probe = Environment.GetEnvironmentVariable("DP_TRACE") == "1";
         void Frame(float t)
         {
             p.T = t;
             context.UpdateSubresource(in p, cb);
             context.Draw(3, 0);
+            if (probe)
+            {
+                probe = false;
+                Probe(device, context, ta, beforeBits, r.Width, r.Height, "texture A");
+                Probe(device, context, tb, afterBits, r.Width, r.Height, "texture B");
+                Probe(device, context, back, beforeBits, r.Width, r.Height, "disegnato");
+            }
             swap.Present(1, PresentFlags.None);   // vsync: ritmo perfetto, nessun fotogramma sprecato
         }
 
@@ -122,6 +141,26 @@ static class GpuTransition
         context.Flush();
     }
 
+    // Diagnostica: confronta il pixel centrale dell'immagine caricata con quello disegnato dalla GPU.
+    static unsafe void Probe(ID3D11Device device, ID3D11DeviceContext context, ID3D11Texture2D back, IntPtr src, int w, int h, string tag)
+    {
+        try
+        {
+            Texture2DDescription d = back.Description;
+            d.Usage = ResourceUsage.Staging; d.BindFlags = BindFlags.None; d.CPUAccessFlags = CpuAccessFlags.Read; d.MiscFlags = ResourceOptionFlags.None;
+            using ID3D11Texture2D st = device.CreateTexture2D(d);
+            context.CopyResource(st, back);
+            MappedSubresource m = context.Map(st, 0, MapMode.Read);
+            int cx = w / 2, cy = h / 2;
+            uint gpu = *(uint*)((byte*)m.DataPointer + cy * m.RowPitch + cx * 4);
+            context.Unmap(st, 0);
+            uint cpu = *(uint*)((byte*)src + ((long)cy * w + cx) * 4);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dp_trace.txt"),
+                $"gpu probe {tag}: sorgente {cpu:X8}  letto {gpu:X8}  {d.Width}x{d.Height} cb={sizeof(Params)}\r\n");
+        }
+        catch (Exception ex) { System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dp_trace.txt"), "gpu probe errore: " + ex.Message + "\r\n"); }
+    }
+
     static ID3D11Texture2D Upload(ID3D11Device device, IntPtr bits, int w, int h)
     {
         Texture2DDescription d = new()
@@ -132,5 +171,9 @@ static class GpuTransition
         return device.CreateTexture2D(d, [new SubresourceData(bits, (uint)(w * 4))]);
     }
 
+    [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
+    [DllImport("gdi32.dll")] static extern int CombineRgn(IntPtr d, IntPtr a, IntPtr b, int mode);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr o);
+    [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr h, IntPtr rgn, bool redraw);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
 }
